@@ -198,6 +198,19 @@ def package_backend(name: str) -> PackageBackendDescriptor | None:
     return valid.get(name)
 
 
+def owns_builtin_type(name: str) -> bool:
+    """True when an installed package declares ``owns_builtin`` for ``name``.
+
+    A name declared by two packages is not owned by either, so the built-in
+    implementation stays in place.
+    """
+    try:
+        descriptor = package_backend(name)
+    except ConfigError:
+        return False
+    return bool(descriptor and descriptor.owns_builtin)
+
+
 def load_backend_class(name: str) -> type:
     """Import the provider class for a package backend.
 

@@ -47,6 +47,7 @@ from kohakuterrarium.llm.presets.groups import (
     _gemini_thinking,
 )
 from kohakuterrarium.llm.presets.packages import merge_package_presets
+from kohakuterrarium.llm.profiles.backend_registry import owns_builtin_type
 from kohakuterrarium.packages.walk import list_packages, packages_fingerprint
 from kohakuterrarium.utils.logging import get_logger
 
@@ -1164,8 +1165,9 @@ def get_all_presets() -> dict[tuple[str, str], dict[str, Any]]:
         provider, bare_name, body = canonical
         flat[(provider, bare_name)] = body
 
+    if not owns_builtin_type("google-antigravity"):
+        flat.update(AGY_PRESETS)
     flat.update(merge_package_presets(packages, set(flat)))
-    flat.update(AGY_PRESETS)
     _all_presets_cache = flat
     _all_presets_key = key
     return _all_presets_cache

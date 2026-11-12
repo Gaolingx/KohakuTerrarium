@@ -4,6 +4,7 @@ Map flat preset keys and user-facing aliases to canonical provider/name pairs.
 """
 
 from kohakuterrarium.llm.antigravity.presets import DEPRECATED as AGY_DEPRECATED
+from kohakuterrarium.llm.profiles.backend_registry import owns_builtin_type
 
 # Provider identity disambiguates flat keys whose public names drop route suffixes.
 _CANONICAL_NAMES: dict[str, str] = {
@@ -183,7 +184,7 @@ ALIASES: dict[str, tuple[str, str]] = {
 
 
 # Retired presets keep resolving, to the successor on the same provider.
-DEPRECATED_PRESETS: dict[tuple[str, str], str] = {
+_BASE_DEPRECATED: dict[tuple[str, str], str] = {
     ("gemini", "gemini-3.1-pro"): "gemini-4-argon",
     ("gemini", "gemini-3.5-flash"): "gemini-3.8-flash",
     ("gemini", "gemini-3.1-flash-lite"): "gemini-3.5-flash-lite",
@@ -205,14 +206,23 @@ DEPRECATED_PRESETS: dict[tuple[str, str], str] = {
     ("openrouter", "kimi-k2.6"): "kimi-k3.1-pro",
     ("openrouter", "qwen3-coder-plus"): "qwen3-coder-next",
     ("openrouter", "grok-4.1-fast"): "grok-4.3",
-    **{("google-antigravity", old): new for old, new in AGY_DEPRECATED.items()},
 }
+
+
+def deprecated_presets() -> dict[tuple[str, str], str]:
+    """Retired preset map; built-in Antigravity entries drop when a package owns it."""
+    mapping = dict(_BASE_DEPRECATED)
+    if not owns_builtin_type("google-antigravity"):
+        mapping.update(
+            {("google-antigravity", old): new for old, new in AGY_DEPRECATED.items()}
+        )
+    return mapping
 
 
 def resolve_deprecated(name: str, provider: str = "") -> list[tuple[str, str]]:
     """Map a retired preset name to its successors, on one or every provider."""
     return [
         (prov, successor)
-        for (prov, old), successor in DEPRECATED_PRESETS.items()
+        for (prov, old), successor in deprecated_presets().items()
         if old == name and (not provider or prov == provider)
     ]
