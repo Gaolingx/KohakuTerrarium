@@ -107,7 +107,7 @@ model supports every modality.
 Use of this optional integration remains subject to the account provider's terms
 and restrictions. There is no compatibility or account-availability guarantee.
 
-## Package variant (`google-antigravity-plugin`)
+## Package variant (`kt-antigravity-plugin`)
 
 The same agy sign-in also ships as an installable package, so it can be updated
 independently of the core:
@@ -116,11 +116,11 @@ independently of the core:
 kt install @kt-antigravity-plugin
 ```
 
-It appears in Settings → Providers → OAuth sign-in as **Google Antigravity
-(Plugin)**, keeps its own backend type and presets
-(`google-antigravity-plugin/gemini-4-argon@reasoning=medium`), and leaves this
-built-in provider untouched. Requirements, sign-in states and uninstall steps
-live in the package README.
+It declares `owns_builtin: true` for `google-antigravity`, so installing it takes
+the type over: the same selectors and preset names now resolve to the package
+implementation, Settings shows one **Google Antigravity** row backed by the
+package's `auth:` class, and uninstalling restores this built-in provider.
+Requirements, sign-in states and uninstall steps live in the package README.
 
 ## Output limits and tool results
 

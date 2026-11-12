@@ -71,7 +71,7 @@ Claude 回传时会组装流式文本／思考块及末尾签名，去掉空占�
 会提示新建或压缩会话。改变 effort 会改变实际模型 ID，带工具签名的会话应先压缩或新建；
 对应同一实际 ID 的系列名与明确档位 ID 可相互复用历史。切换到 OpenAI 时不会外发 Google 内部状态字段。
 
-## 包版本（`google-antigravity-plugin`）
+## 包版本（`kt-antigravity-plugin`）
 
 同一套 agy 登录也以可安装包的形式提供，可不随核心仓库发版独立更新：
 
@@ -79,9 +79,9 @@ Claude 回传时会组装流式文本／思考块及末尾签名，去掉空占�
 kt install @kt-antigravity-plugin
 ```
 
-它在设置的「OAuth 登录」区显示为 **Google Antigravity (Plugin)**，使用自己的
-后端类型与预设（`google-antigravity-plugin/gemini-4-argon@reasoning=medium`），
-不影响本文所述的内置 provider。前置条件、登录状态与卸载步骤见包仓库 README。
+它在清单里对 `google-antigravity` 声明 `owns_builtin: true`：安装后同名选择器与预设
+解析到包内实现，设置页只保留一行 **Google Antigravity**（登录状态由包的 `auth:` 类
+提供），卸载后恢复本文所述的内置 provider。前置条件、登录状态与卸载步骤见包仓库 README。
 
 ## 当前边界
 
