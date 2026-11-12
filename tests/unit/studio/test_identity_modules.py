@@ -171,6 +171,7 @@ class TestPackageBackendRecords:
                 echo_backend(
                     "google-antigravity",
                     display_name="Antigravity (package)",
+                    description="Reuse the local agy login.",
                     credentials="external",
                     owns_builtin=True,
                     auth=auth_block("ReadyAuth", login_hint="Run agy."),
@@ -182,6 +183,7 @@ class TestPackageBackendRecords:
         assert row["built_in"] is False
         assert row["owned_builtin"] is True
         assert row["display_name"] == "Antigravity (package)"
+        assert row["description"] == "Reuse the local agy login."
         assert row["auth"] == {
             "local_only": True,
             "login_hint": "Run agy.",
@@ -196,6 +198,7 @@ class TestPackageBackendRecords:
         assert row["owned_builtin"] is False
         assert row["auth"] is None
         assert row["display_name"] == "google-antigravity"
+        assert row["description"] == ""
 
     def test_list_backends_survives_a_contested_owned_name(self, kt_home):
         for package in ("pkg-a", "pkg-b"):

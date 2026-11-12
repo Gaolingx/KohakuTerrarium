@@ -90,6 +90,7 @@ def list_backends() -> list[dict[str, Any]]:
             {
                 "name": name,
                 "display_name": descriptor.display_name if descriptor else name,
+                "description": descriptor.description if descriptor else "",
                 "backend_type": backend.backend_type,
                 "base_url": backend.base_url or "",
                 "api_key_env": backend.api_key_env or "",
