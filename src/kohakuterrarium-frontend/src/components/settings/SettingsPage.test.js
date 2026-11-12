@@ -11,6 +11,7 @@ vi.mock("@/utils/api", () => {
     saveKey: vi.fn(),
     getAntigravityStatus: vi.fn(),
     getGrokStatus: vi.fn(),
+    getExternalAuthStatus: vi.fn(),
     getBackends: vi.fn(),
     getNativeTools: vi.fn(),
     listMCP: vi.fn(),
@@ -37,6 +38,8 @@ vi.mock("@/utils/i18n", () => ({
 }))
 
 import SettingsPage from "./SettingsPage.vue"
+import ExternalAuthProviderRow from "./ExternalAuthProviderRow.vue"
+import OAuthProviderRow from "./OAuthProviderRow.vue"
 import SettingsTab from "@/components/shell/tabs/SettingsTab.vue"
 import { useTabsStore } from "@/stores/tabs"
 import { useDensity } from "@/composables/useDensity"
@@ -55,6 +58,7 @@ function mountSettingsPage(section = "", compact = false) {
       plugins: [ElementPlus],
       stubs: {
         OAuthProviderRow: false,
+        ExternalAuthProviderRow: false,
         PackageProviderRow: false,
         ProviderKeyRow: false,
         ProviderRow: false,
@@ -90,6 +94,10 @@ describe("SettingsPage model presets", () => {
     setActivePinia(createPinia())
     settingsAPI.getAntigravityStatus.mockResolvedValue({ state: "ready", refresh_available: true })
     settingsAPI.getGrokStatus.mockResolvedValue({ authenticated: true, source: "grok-cli" })
+    settingsAPI.getExternalAuthStatus.mockResolvedValue({
+      state: "ready",
+      refresh_available: false,
+    })
     settingsAPI.getKeys.mockResolvedValue({ providers: [] })
     settingsAPI.getBackends.mockResolvedValue({ backends: [] })
     settingsAPI.getNativeTools.mockResolvedValue({ tools: [] })
@@ -204,6 +212,100 @@ describe("SettingsPage model presets", () => {
     const wrapper = mountSettingsPage()
     await flushPromises()
     expect(wrapper.find('[data-provider-section="package"]').exists()).toBe(false)
+  })
+
+  it("moves a package-owned built-in type into the OAuth section as a generic row", async () => {
+    configAPI.getModels.mockResolvedValue([])
+    settingsAPI.getBackends.mockResolvedValue({
+      backends: [
+        {
+          name: "google-antigravity",
+          backend_type: "google-antigravity",
+          built_in: false,
+          owned_builtin: true,
+          source: "package",
+          package: "kt-antigravity-login",
+          display_name: "Google Antigravity",
+          credentials: "external",
+          auth: { local_only: true, login_hint: "Run agy to sign in.", available: true },
+          available: true,
+        },
+        {
+          name: "echo",
+          backend_type: "echo",
+          built_in: false,
+          source: "package",
+          package: "pkg-x",
+          credentials: "external",
+          available: true,
+        },
+      ],
+    })
+    const wrapper = mountSettingsPage()
+    await flushPromises()
+    const oauth = wrapper.get('[data-provider-section="oauth"]')
+    expect(oauth.findAll(".provider-row")).toHaveLength(1)
+    expect(oauth.findComponent(ExternalAuthProviderRow).exists()).toBe(true)
+    expect(oauth.findComponent(OAuthProviderRow).exists()).toBe(false)
+    expect(oauth.text()).toContain("Google Antigravity")
+    expect(settingsAPI.getExternalAuthStatus).toHaveBeenCalledWith("google-antigravity", "_host")
+    expect(settingsAPI.getAntigravityStatus).not.toHaveBeenCalled()
+    const pkg = wrapper.get('[data-provider-section="package"]')
+    expect(pkg.findAll(".provider-row")).toHaveLength(1)
+    expect(pkg.text()).toContain("settings.providers.fromPackage:pkg-x")
+    expect(wrapper.find('[data-provider-section="custom"]').text()).not.toContain(
+      "google-antigravity",
+    )
+  })
+
+  it("lists every backend in exactly one provider section", async () => {
+    configAPI.getModels.mockResolvedValue([])
+    settingsAPI.getBackends.mockResolvedValue({
+      backends: [
+        { name: "codex", backend_type: "codex", built_in: true, source: "builtin" },
+        { name: "openai", backend_type: "openai", built_in: true, source: "builtin" },
+        {
+          name: "google-antigravity",
+          backend_type: "google-antigravity",
+          built_in: false,
+          owned_builtin: true,
+          source: "package",
+          package: "kt-antigravity-login",
+          credentials: "external",
+          auth: { local_only: true, login_hint: "", available: true },
+        },
+        {
+          name: "echo",
+          backend_type: "echo",
+          built_in: false,
+          source: "package",
+          package: "pkg-x",
+          credentials: "external",
+          available: true,
+        },
+        {
+          name: "local-proxy",
+          backend_type: "openai",
+          built_in: false,
+          source: "user",
+          base_url: "https://proxy.test/v1",
+        },
+      ],
+    })
+    const wrapper = mountSettingsPage()
+    await flushPromises()
+    const groups = [
+      wrapper.vm.oauthBackends,
+      wrapper.vm.keyBackends,
+      wrapper.vm.packageBackends,
+      wrapper.vm.customBackends,
+    ]
+    const names = groups.flatMap((group) => group.map((backend) => backend.name))
+    expect(names).toHaveLength(new Set(names).size)
+    expect(new Set(names)).toEqual(
+      new Set(["codex", "openai", "google-antigravity", "echo", "local-proxy"]),
+    )
+    expect(wrapper.vm.oauthBackends.map((b) => b.name)).toEqual(["codex", "google-antigravity"])
   })
 
   it("saves the key for the selected provider and updates its configured state", async () => {

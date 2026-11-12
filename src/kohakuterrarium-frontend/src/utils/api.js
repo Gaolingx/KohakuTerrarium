@@ -1316,6 +1316,14 @@ export const settingsAPI = {
     const { data } = await api.get("/settings/antigravity-status", _nodeQuery(node))
     return data
   },
+  /**
+   * Sign-in state declared by a package's ``llm_backends[].auth`` class.
+   * Resolves to ``{backend, state, source, refresh_available, hint}``.
+   */
+  async getExternalAuthStatus(name, node = "_host") {
+    const { data } = await api.get(`/settings/backends/${name}/auth-status`, _nodeQuery(node))
+    return data
+  },
   async getAntigravityUsage(node = "_host") {
     const { data } = await api.get("/settings/antigravity-usage", {
       timeout: 90000,

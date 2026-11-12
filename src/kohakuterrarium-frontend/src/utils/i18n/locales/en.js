@@ -25,6 +25,7 @@ export default {
   "settings.oauth.grokLogin": "Sign in through Grok CLI or OpenCode, then check again.",
   "settings.oauth.adminRequired": "Administrator access is required to check credentials.",
   "settings.oauth.checkFailed": "Could not check credentials. Check the connection and try again.",
+  "settings.oauth.localOnly": "This provider is supported on the local host only.",
   "settings.providers.oauthTitle": "OAuth sign-in",
   "settings.providers.oauthHint": "Sign in to an account or reuse credentials from a local client.",
   "settings.providers.keysTitle": "API keys",

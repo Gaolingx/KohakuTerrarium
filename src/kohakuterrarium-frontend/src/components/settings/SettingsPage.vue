@@ -14,7 +14,10 @@
             <section v-if="oauthBackends.length" class="card p-4 provider-section" data-provider-section="oauth">
               <h3 class="provider-section-title">{{ t("settings.providers.oauthTitle") }}</h3>
               <p class="provider-section-hint">{{ t("settings.providers.oauthHint") }}</p>
-              <OAuthProviderRow v-for="backend in oauthBackends" :key="backend.name" :backend="backend" :node="providerNode" :login-busy="codexLoggingIn" @login="runCodexLogin" />
+              <template v-for="backend in oauthBackends" :key="backend.name">
+                <ExternalAuthProviderRow v-if="hasExternalAuth(backend)" :backend="backend" :node="providerNode" />
+                <OAuthProviderRow v-else :backend="backend" :node="providerNode" :login-busy="codexLoggingIn" @login="runCodexLogin" />
+              </template>
             </section>
             <section class="card p-4 provider-section" data-provider-section="keys">
               <h3 class="provider-section-title">{{ t("settings.providers.keysTitle") }}</h3>
@@ -190,6 +193,7 @@ import SettingsRow from "@/components/settings/ui/SettingsRow.vue"
 import { onShownAgain } from "@/components/session-v2/settings/useSectionTarget"
 import { useHostsStore } from "@/stores/hosts"
 import DriveSettingsPanel from "@/components/settings/DriveSettingsPanel.vue"
+import ExternalAuthProviderRow from "@/components/settings/ExternalAuthProviderRow.vue"
 import OAuthProviderRow from "@/components/settings/OAuthProviderRow.vue"
 import PackageProviderRow from "@/components/settings/PackageProviderRow.vue"
 import ProviderKeyRow from "@/components/settings/ProviderKeyRow.vue"
@@ -343,6 +347,10 @@ function isOAuthBackend(backend) {
   return isOAuthCodex(backend) || isAntigravity(backend) || isGrokSubscription(backend)
 }
 
+function hasExternalAuth(backend) {
+  return Boolean(backend.auth) && (backend.owned_builtin === true || backend.source === "package")
+}
+
 function runCodexLogin() {
   // Worker-side login still uses the one-shot REST endpoint (the
   // streaming variant only supports the host node in 1.5.0).  For
@@ -432,10 +440,10 @@ const backendsWithAuth = computed(() => {
   return [...configuredBackends, ...credentialOnlyProviders]
 })
 
-const oauthBackends = computed(() => backendsWithAuth.value.filter((b) => b.built_in && isOAuthBackend(b)))
+const oauthBackends = computed(() => backendsWithAuth.value.filter((b) => hasExternalAuth(b) || (b.built_in && isOAuthBackend(b))))
 const keyBackends = computed(() => backendsWithAuth.value.filter((b) => b.built_in && !isOAuthBackend(b)))
-const packageBackends = computed(() => backendsWithAuth.value.filter((b) => b.source === "package"))
-const customBackends = computed(() => backendsWithAuth.value.filter((b) => !b.built_in && !packageBackends.value.includes(b)))
+const packageBackends = computed(() => backendsWithAuth.value.filter((b) => b.source === "package" && !hasExternalAuth(b)))
+const customBackends = computed(() => backendsWithAuth.value.filter((b) => !b.built_in && b.source !== "package"))
 
 async function loadBackends() {
   try {
