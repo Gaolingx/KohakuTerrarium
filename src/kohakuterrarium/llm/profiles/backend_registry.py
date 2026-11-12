@@ -198,16 +198,24 @@ def package_backend(name: str) -> PackageBackendDescriptor | None:
     return valid.get(name)
 
 
+def package_backend_optional(name: str) -> PackageBackendDescriptor | None:
+    """Descriptor for ``name``, treating a contested name as unclaimed.
+
+    Display paths use this so a package collision cannot break a listing.
+    """
+    try:
+        return package_backend(name)
+    except ConfigError:
+        return None
+
+
 def owns_builtin_type(name: str) -> bool:
     """True when an installed package declares ``owns_builtin`` for ``name``.
 
     A name declared by two packages is not owned by either, so the built-in
     implementation stays in place.
     """
-    try:
-        descriptor = package_backend(name)
-    except ConfigError:
-        return False
+    descriptor = package_backend_optional(name)
     return bool(descriptor and descriptor.owns_builtin)
 
 

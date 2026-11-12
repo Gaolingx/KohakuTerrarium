@@ -197,6 +197,17 @@ class TestPackageBackendRecords:
         assert row["auth"] is None
         assert row["display_name"] == "google-antigravity"
 
+    def test_list_backends_survives_a_contested_owned_name(self, kt_home):
+        for package in ("pkg-a", "pkg-b"):
+            install_backend_package(
+                kt_home,
+                package,
+                [echo_backend("google-antigravity", owns_builtin=True)],
+            )
+        row = {r["name"]: r for r in backends_mod.list_backends()}["google-antigravity"]
+        assert row["source"] == "builtin"
+        assert row["owned_builtin"] is False
+
 
 # ── llm_default ─────────────────────────────────────────────
 

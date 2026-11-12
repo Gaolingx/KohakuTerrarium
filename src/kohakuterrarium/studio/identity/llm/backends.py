@@ -11,6 +11,7 @@ from kohakuterrarium.llm.profiles.api_keys import PROVIDER_KEY_MAP
 from kohakuterrarium.llm.profiles.backend_registry import (
     BUILTIN_BACKEND_TYPES,
     package_backend,
+    package_backend_optional,
     package_backends,
 )
 from kohakuterrarium.llm.profiles.backends import package_provider_records
@@ -74,7 +75,9 @@ def list_backends() -> list[dict[str, Any]]:
     rows = []
     package_records = package_provider_records()
     for name, backend in load_backends().items():
-        descriptor = package_backend(name) or package_backend(backend.backend_type)
+        descriptor = package_backend_optional(name) or package_backend_optional(
+            backend.backend_type
+        )
         if backend == package_records.get(name):
             source = "package"
         elif name in _BUILT_IN_BACKEND_NAMES:

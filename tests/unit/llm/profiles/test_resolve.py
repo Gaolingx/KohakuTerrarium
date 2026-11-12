@@ -652,6 +652,19 @@ class TestIsAvailable:
         assert _is_available("google-antigravity") is False
         assert "auth check failed" in caplog.text.lower()
 
+    def test_contested_owned_name_falls_back_to_local_agy(self, tmp_path, monkeypatch):
+        from kohakuterrarium.llm.antigravity.auth import AgyCredentials
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(AgyCredentials, "available", classmethod(lambda cls: True))
+        for package in ("a", "b"):
+            install_backend_package(
+                tmp_path,
+                package,
+                [echo_backend("google-antigravity", owns_builtin=True)],
+            )
+        assert _is_available("google-antigravity") is True
+
 
 # ---------------------------------------------------------------------------
 # Backend CRUD

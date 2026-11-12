@@ -16,7 +16,7 @@ from kohakuterrarium.llm.profiles.api_keys import save_api_key
 from kohakuterrarium.llm.profiles.backend_registry import (
     PackageBackendError,
     load_backend_auth,
-    package_backend,
+    package_backend_optional,
 )
 from kohakuterrarium.llm.profiles.backends import (
     _BUILTIN_PROVIDER_NAMES,
@@ -581,7 +581,7 @@ def _is_available(
     if provider_name == "grok-subscription":
         return GrokTokens.available()
     if backend:
-        descriptor = package_backend(backend.backend_type)
+        descriptor = package_backend_optional(backend.backend_type)
         if descriptor is not None and descriptor.manages_own_credentials:
             if descriptor.auth is None:
                 return True
