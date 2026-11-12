@@ -9,6 +9,7 @@ from kohakuterrarium.llm.profiles.backend_registry import (
     backend_doctor,
     load_backend_auth,
     load_backend_class,
+    owns_builtin_type,
     package_backend,
     package_backends,
 )
@@ -252,6 +253,27 @@ class TestLoadBackendClass:
         )
         with pytest.raises(PackageBackendError, match="from_profile"):
             load_backend_class("x")
+
+
+class TestOwnsBuiltinType:
+    def test_owned_name_is_reported(self, kt_home):
+        install_backend_package(
+            kt_home, "p", [echo_backend("openai", owns_builtin=True)]
+        )
+        assert owns_builtin_type("openai") is True
+
+    def test_declared_without_the_flag_is_not_owned(self, kt_home):
+        install_backend_package(kt_home, "p", [echo_backend("openai")])
+        assert owns_builtin_type("openai") is False
+
+    def test_contested_name_is_not_owned_by_either(self, kt_home):
+        install_backend_package(
+            kt_home, "a", [echo_backend("openai", owns_builtin=True)]
+        )
+        install_backend_package(
+            kt_home, "b", [echo_backend("openai", owns_builtin=True)]
+        )
+        assert owns_builtin_type("openai") is False
 
 
 class TestLoadBackendAuth:

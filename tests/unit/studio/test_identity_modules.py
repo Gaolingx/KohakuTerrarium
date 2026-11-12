@@ -16,6 +16,7 @@ from kohakuterrarium.studio.identity.llm import native_tools as native_mod
 from kohakuterrarium.studio.identity.llm import profiles as profiles_mod
 
 from tests.unit._fakes.package_backend import (
+    auth_block,
     echo_backend,
     install_backend_package,
     kt_home,  # noqa: F401
@@ -172,7 +173,7 @@ class TestPackageBackendRecords:
                     display_name="Antigravity (package)",
                     credentials="external",
                     owns_builtin=True,
-                    auth={"module": "m", "class": "A", "login_hint": "Run agy."},
+                    auth=auth_block("ReadyAuth", login_hint="Run agy."),
                 )
             ],
         )
