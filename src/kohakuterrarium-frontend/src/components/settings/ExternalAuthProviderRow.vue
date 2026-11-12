@@ -47,9 +47,11 @@ const tone = computed(() => (state.value === "ready" ? "success" : ["pending", "
 const detail = computed(() => {
   if (localHostOnly.value) return t("settings.oauth.localOnly")
   if (error.value) return error.value
-  if (state.value === "ready" || state.value === "checking") return ""
+  if (["ready", "checking", "unsupported"].includes(state.value)) return ""
   if (state.value === "pending") return t("settings.oauth.autoRefresh")
-  return auth.value.login_hint || t("settings.oauth.checkFailed")
+  const hint = status.value?.hint || auth.value.login_hint
+  if (hint) return hint
+  return ["missing", "expired"].includes(state.value) ? t("settings.oauth.signInRequired") : ""
 })
 
 async function load() {

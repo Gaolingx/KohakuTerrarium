@@ -109,6 +109,24 @@ describe("external auth provider row", () => {
     expect(wrapper.text()).toContain("settings.oauth.attention")
   })
 
+  it("prefers the runtime hint over the manifest login hint", async () => {
+    settingsAPI.getExternalAuthStatus.mockResolvedValue({
+      state: "login_required",
+      hint: "Run agy login now.",
+    })
+    const wrapper = row()
+    await flushPromises()
+    expect(wrapper.text()).toContain("Run agy login now.")
+    expect(wrapper.text()).not.toContain("Run agy to sign in, then check again.")
+  })
+
+  it("falls back to a generic sign-in prompt when the provider gives no hint", async () => {
+    settingsAPI.getExternalAuthStatus.mockResolvedValue({ state: "login_required" })
+    const wrapper = row({ backend: backend({ auth: { local_only: true, login_hint: "" } }) })
+    await flushPromises()
+    expect(wrapper.text()).toContain("settings.oauth.signInRequired")
+  })
+
   it("does not call the provider for remote nodes when the provider is local only", async () => {
     const wrapper = row({ node: "worker" })
     await flushPromises()

@@ -233,6 +233,7 @@ export default {
   "settings.oauth.adminRequired": "檢查憑證需要管理員權限。",
   "settings.oauth.checkFailed": "無法檢查憑證，請確認連線後重試。",
   "settings.oauth.localOnly": "此提供者僅支援本機主機。",
+  "settings.oauth.signInRequired": "請先在此提供者自帶的用戶端登入，然後重新檢查。",
 
   "settings.languageHint": "選擇 Web 介面的顯示語言。",
   "settings.tabs.advanced": "進階",

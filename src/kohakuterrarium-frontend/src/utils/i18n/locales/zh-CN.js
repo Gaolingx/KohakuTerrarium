@@ -26,6 +26,7 @@ export default {
   "settings.oauth.adminRequired": "检查凭据需要管理员权限。",
   "settings.oauth.checkFailed": "无法检查凭据，请确认连接后重试。",
   "settings.oauth.localOnly": "该提供者仅支持本地主机。",
+  "settings.oauth.signInRequired": "请先在该提供者自带的客户端登录，然后重新检查。",
   "settings.providers.description": "管理模型服务的登录与连接方式。",
   "settings.providers.oauthTitle": "OAuth 登录",
   "settings.providers.oauthHint": "通过账号登录或复用本机客户端凭据。",
