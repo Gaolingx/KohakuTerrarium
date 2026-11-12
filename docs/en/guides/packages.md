@@ -159,6 +159,13 @@ llm_backends:
     display_name: My transport      # optional, shown in Settings
     description: One line for the settings page.
     credentials: api_key            # api_key (default) | external | none
+    provider_native_tools: []       # [] means no provider-native tools
+    owns_builtin: false             # true may claim a built-in type name
+    auth:                           # optional sign-in row (see below)
+      module: my_pack.status
+      class: MyAuth
+      local_only: true              # default true: host node only
+      login_hint: Run my-cli to sign in.
 
 llm_presets:
   - name: my-model
@@ -195,10 +202,23 @@ class MyProvider(BaseLLMProvider):
 - `credentials: external` (or `none`) means the backend handles its own
   sign-in: KohakuTerrarium never asks for, stores or checks an API key for
   it, and `kt login <name>` only prints a notice.
+- The optional `auth:` block gives an `external` backend a row in the OAuth
+  sign-in section. `status()` is synchronous and returns `state`, `source`,
+  `refresh_available` and `hint`; `state` must be one of `ready`, `expired`,
+  `login_required`, `unsupported_platform`, `ambiguous_sources`,
+  `malformed_credential`, `credential_store_unavailable`, `refresh_busy` or
+  `unavailable` (anything else is reported as `unavailable`). Every other key a
+  package returns is dropped, so credential material cannot leak through the
+  row.
+  Optional async `refresh()` renews the credential (`refresh_busy` maps to
+  HTTP 409) and optional `models()` answers with `{"models": [...]}`.
+- `owns_builtin: true` lets an entry take over a built-in type name such as
+  `google-antigravity`: the package provider replaces the built-in record and
+  its presets win over the built-in ones. Only one package may claim a name.
 - Discovery reads the manifest only; the module is imported the first time a
   profile on that backend is built.
-- A name equal to a built-in backend type is ignored. Two packages declaring
-  the same name is an error.
+- A name equal to a built-in backend type without `owns_builtin: true` is
+  ignored. Two packages declaring the same name is an error.
 
 ## Install modes
 

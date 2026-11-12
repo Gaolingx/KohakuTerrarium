@@ -107,6 +107,21 @@ model supports every modality.
 Use of this optional integration remains subject to the account provider's terms
 and restrictions. There is no compatibility or account-availability guarantee.
 
+## Package variant (`google-antigravity-plugin`)
+
+The same agy sign-in also ships as an installable package, so it can be updated
+independently of the core:
+
+```bash
+kt install @kt-antigravity-plugin
+```
+
+It appears in Settings → Providers → OAuth sign-in as **Google Antigravity
+(Plugin)**, keeps its own backend type and presets
+(`google-antigravity-plugin/gemini-4-argon@reasoning=medium`), and leaves this
+built-in provider untouched. Requirements, sign-in states and uninstall steps
+live in the package README.
+
 ## Output limits and tool results
 
 Per-call `max_tokens` overrides (including compaction summaries) leave the saved

@@ -159,6 +159,13 @@ llm_backends:
     display_name: My transport      # 可选，在设置页显示
     description: 设置页上的一行说明。
     credentials: api_key            # api_key（默认）| external | none
+    provider_native_tools: []       # [] 表示没有 provider 原生工具
+    owns_builtin: false             # 为 true 时可占用内置类型名
+    auth:                           # 可选：登录状态行（见下）
+      module: my_pack.status
+      class: MyAuth
+      local_only: true              # 默认 true：仅本机可查
+      login_hint: Run my-cli to sign in.
 
 llm_presets:
   - name: my-model
@@ -194,8 +201,21 @@ class MyProvider(BaseLLMProvider):
 - `credentials: external`（或 `none`）表示后端自行处理登录：
   KohakuTerrarium 不会为它索取、保存或检查 API 密钥，`kt login <name>`
   只打印一条提示。
+- 可选的 `auth:` 块为 `external` 后端提供 OAuth 登录区的一行。`status()`
+  是同步方法，返回 `state`、`source`、`refresh_available`、`hint`；`state`
+  必须是 `ready`、`expired`、`login_required`、`unsupported_platform`、
+  `ambiguous_sources`、`malformed_credential`、
+  `credential_store_unavailable`、`refresh_busy`、`unavailable` 之一
+  （其他值一律按 `unavailable` 上报）。其余返回值一律丢弃，
+  凭据内容不可能经由这一行泄露。可选的异步 `refresh()` 负责续期
+  （`refresh_busy` 映射为 HTTP 409），可选的 `models()` 返回
+  `{"models": [...]}`。
+- `owns_builtin: true` 允许条目接管内置类型名（例如 `google-antigravity`）：
+  包提供的 provider 取代内置记录，其预设优先于内置预设。同一个名字只能
+  被一个包占用。
 - 发现阶段只读取清单；模块在第一次构建该后端的 profile 时才导入。
-- 与内置后端类型同名的条目会被忽略。两个包声明同一个名字会报错。
+- 与内置后端类型同名但未声明 `owns_builtin: true` 的条目会被忽略。
+  两个包声明同一个名字会报错。
 
 ## 安装方式
 
