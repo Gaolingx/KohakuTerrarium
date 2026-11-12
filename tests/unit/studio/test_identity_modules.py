@@ -90,6 +90,33 @@ class TestLlmBackends:
 class TestPackageBackendRecords:
     """Studio view of backend types and records contributed by packages."""
 
+    def test_owned_builtin_appears_once(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "pkg-agy",
+            [echo_backend("google-antigravity", owns_builtin=True)],
+        )
+        rows = backends_mod.list_backend_types()
+        names = [r["name"] for r in rows]
+        assert names.count("google-antigravity") == 1
+        row = rows[names.index("google-antigravity")]
+        assert row["source"] == "package"
+
+    def test_owned_builtin_row_carries_display_name(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "pkg-agy",
+            [
+                echo_backend(
+                    "google-antigravity",
+                    display_name="Antigravity (package)",
+                    owns_builtin=True,
+                )
+            ],
+        )
+        rows = {r["name"]: r for r in backends_mod.list_backend_types()}
+        assert rows["google-antigravity"]["display_name"] == "Antigravity (package)"
+
     def test_backend_types_list_builtins_then_packages(self, kt_home):
         install_backend_package(
             kt_home,

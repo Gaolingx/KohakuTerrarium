@@ -38,7 +38,12 @@ _BUILT_IN_BACKEND_NAMES = {
 
 
 def list_backend_types() -> list[dict[str, Any]]:
-    """Return every selectable backend type, built-in first, then package ones."""
+    """Return every selectable backend type, built-in first, then package ones.
+
+    A built-in type claimed by a package is listed once, as the package row.
+    """
+    package_descriptors = package_backends()
+    owned = {name for name, d in package_descriptors.items() if d.owns_builtin}
     rows = [
         {
             "name": name,
@@ -48,9 +53,9 @@ def list_backend_types() -> list[dict[str, Any]]:
             "package": "",
             "credentials": "api_key",
         }
-        for name in sorted(BUILTIN_BACKEND_TYPES)
+        for name in sorted(BUILTIN_BACKEND_TYPES - owned)
     ]
-    for name, descriptor in sorted(package_backends().items()):
+    for name, descriptor in sorted(package_descriptors.items()):
         rows.append(
             {
                 "name": name,
