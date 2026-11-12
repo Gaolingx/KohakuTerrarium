@@ -127,53 +127,70 @@ def _scan_uncached() -> _ScanResult:
     valid: dict[str, PackageBackendDescriptor] = {}
     for package, entry in iter_package_llm_backend_entries():
         name = entry["name"]
-        if name in BUILTIN_BACKEND_TYPES:
+        try:
+            descriptor = PackageBackendDescriptor.from_manifest(package, entry)
+        except ConfigError as exc:
+            logger.warning("Package backend skipped", error=str(exc))
+            continue
+        if name in BUILTIN_BACKEND_TYPES and not descriptor.owns_builtin:
             logger.warning(
                 "Package backend skipped (built-in type)", backend=name, package=package
             )
             continue
         owners.setdefault(name, []).append(package)
-        try:
-            valid[name] = PackageBackendDescriptor.from_manifest(package, entry)
-        except ConfigError as exc:
-            logger.warning("Package backend skipped", error=str(exc))
+        valid[name] = descriptor
     collisions = {name: pkgs for name, pkgs in owners.items() if len(pkgs) > 1}
     for name in collisions:
         valid.pop(name, None)
     return valid, collisions
 
 
-def _collision_error(name: str, packages: list[str]) -> ConfigError:
+def _collision_error(
+    name: str, packages: list[str], *, owned: bool = False
+) -> ConfigError:
+    detail = (
+        " (both claim built-in type; only one may set owns_builtin: true)"
+        if owned
+        else ""
+    )
     return ConfigError(
         f"Collision for llm_backends name {name!r}: declared by packages "
-        f"[{', '.join(packages)}]. Uninstall one or rename the entry."
+        f"[{', '.join(packages)}]. Uninstall one or rename the entry.{detail}"
     )
 
 
 def package_backends() -> dict[str, PackageBackendDescriptor]:
     """Every usable package backend keyed by name.
 
-    Built-in type names, malformed entries and names declared by more than
+    A built-in type name is claimed only by an entry declaring
+    ``owns_builtin: true``; malformed entries and names declared by more than
     one package are left out (with a log line), so one broken package does
     not disable the others.
     """
     valid, collisions = _scan()
     for name, packages in collisions.items():
-        logger.error(str(_collision_error(name, packages)))
+        logger.error(
+            str(_collision_error(name, packages, owned=name in BUILTIN_BACKEND_TYPES))
+        )
     return valid
 
 
 def package_backend(name: str) -> PackageBackendDescriptor | None:
     """The descriptor for ``name``, or ``None`` when no package declares it.
 
+    A built-in type name resolves only when its entry declares
+    ``owns_builtin: true``; otherwise the built-in implementation stands.
+
     Raises:
         ConfigError: More than one package declares ``name``.
     """
-    if not name or name in BUILTIN_BACKEND_TYPES:
+    if not name:
         return None
     valid, collisions = _scan()
     if name in collisions:
-        raise _collision_error(name, collisions[name])
+        raise _collision_error(
+            name, collisions[name], owned=name in BUILTIN_BACKEND_TYPES
+        )
     return valid.get(name)
 
 

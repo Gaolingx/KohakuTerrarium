@@ -189,13 +189,32 @@ class TestPackageBackends:
             "login_hint": "sign in",
         }
 
-    def test_owns_builtin_is_recorded_but_not_yet_honoured(self, kt_home):
-        """T2 flips the skip: until then a builtin name stays unclaimed."""
+    def test_owned_builtin_claims_the_name(self, kt_home):
         install_backend_package(
             kt_home, "p", [echo_backend("openai", owns_builtin=True)]
         )
-        assert package_backends() == {}
-        assert package_backend("openai") is None
+        assert package_backend("openai").package == "p"
+        assert set(package_backends()) == {"openai"}
+
+    def test_two_packages_owning_one_builtin_collide(self, kt_home):
+        install_backend_package(
+            kt_home, "a", [echo_backend("openai", owns_builtin=True)]
+        )
+        install_backend_package(
+            kt_home, "b", [echo_backend("openai", owns_builtin=True)]
+        )
+        with pytest.raises(ConfigError) as exc:
+            package_backend("openai")
+        message = str(exc.value)
+        assert "a" in message and "b" in message
+        assert "owns_builtin" in message
+
+    def test_invalid_entry_does_not_claim_the_name_for_others(self, kt_home):
+        install_backend_package(
+            kt_home, "a", [{"name": "echo", "module": "m", "class": "C", "auth": "x"}]
+        )
+        install_backend_package(kt_home, "b", [echo_backend()])
+        assert package_backend("echo").package == "b"
 
     def test_collision_blocks_only_the_clashing_name(self, kt_home):
         install_backend_package(kt_home, "a", [echo_backend()])
