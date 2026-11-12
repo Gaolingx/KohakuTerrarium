@@ -204,8 +204,12 @@ def load_backends() -> dict[str, LLMBackend]:
     """Merge providers while preserving environment templates for consume-time expansion."""
     data = load_yaml_store()
     backends = _built_in_providers()
+    owned = {name for name, d in package_backends().items() if d.owns_builtin}
     for name, backend in package_provider_records().items():
-        backends.setdefault(name, backend)
+        if name in owned:
+            backends[name] = backend
+        else:
+            backends.setdefault(name, backend)
 
     user_backends = data.get("backends") or data.get("providers") or {}
     if isinstance(user_backends, dict):

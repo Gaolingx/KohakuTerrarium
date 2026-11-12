@@ -135,6 +135,36 @@ class TestPackageBackendRecords:
         with pytest.raises(ValueError, match="Unsupported"):
             backends_mod.save_backend_record("x", "echo")
 
+    def test_list_backends_marks_package_source_and_clears_builtin(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "pkg-agy",
+            [
+                echo_backend(
+                    "google-antigravity",
+                    display_name="Antigravity (package)",
+                    credentials="external",
+                    owns_builtin=True,
+                    auth={"module": "m", "class": "A", "login_hint": "Run agy."},
+                )
+            ],
+        )
+        row = {r["name"]: r for r in backends_mod.list_backends()}["google-antigravity"]
+        assert row["source"] == "package"
+        assert row["built_in"] is False
+        assert row["owned_builtin"] is True
+        assert row["display_name"] == "Antigravity (package)"
+        assert row["auth"] == {"local_only": True, "login_hint": "Run agy."}
+        assert "module" not in row["auth"] and "class" not in row["auth"]
+
+    def test_list_backends_without_package_keeps_builtin_row(self, kt_home):
+        row = {r["name"]: r for r in backends_mod.list_backends()}["google-antigravity"]
+        assert row["source"] == "builtin"
+        assert row["built_in"] is True
+        assert row["owned_builtin"] is False
+        assert row["auth"] is None
+        assert row["display_name"] == "google-antigravity"
+
 
 # ── llm_default ─────────────────────────────────────────────
 

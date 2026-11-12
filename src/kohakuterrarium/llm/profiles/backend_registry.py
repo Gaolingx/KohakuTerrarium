@@ -98,7 +98,11 @@ class PackageBackendDescriptor:
         return self.credentials != "api_key"
 
     def to_backend(self) -> LLMBackend:
-        """The provider record this backend contributes to ``load_backends``."""
+        """The provider record this backend contributes to ``load_backends``.
+
+        ``provider_native_tools`` is authoritative for the package: an empty
+        list means no native tools and does not inherit the built-in list.
+        """
         return LLMBackend(
             name=self.name,
             backend_type=self.name,

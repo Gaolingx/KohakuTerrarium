@@ -331,3 +331,34 @@ class TestPackageBackends:
         assert "echo" not in load_backends()
         with pytest.raises(ValueError):
             validate_backend_type("echo")
+
+    def test_owned_package_replaces_builtin_record(self, isolated_store):
+        install_backend_package(
+            isolated_store.parent,
+            "p",
+            [echo_backend("google-antigravity", owns_builtin=True)],
+        )
+        record = load_backends()["google-antigravity"]
+        assert record == package_provider_records()["google-antigravity"]
+        assert record.provider_name == "google-antigravity"
+
+    def test_uninstall_restores_builtin_record(self, isolated_store):
+        install_backend_package(
+            isolated_store.parent,
+            "p",
+            [echo_backend("google-antigravity", owns_builtin=True)],
+        )
+        shutil.rmtree(isolated_store.parent / "packages" / "p")
+        record = load_backends()["google-antigravity"]
+        assert record == _built_in_providers()["google-antigravity"]
+
+    def test_user_record_still_wins_over_an_owned_package(self, isolated_store):
+        install_backend_package(
+            isolated_store.parent,
+            "p",
+            [echo_backend("google-antigravity", owns_builtin=True)],
+        )
+        save_yaml_store(
+            {"backends": {"google-antigravity": {"backend_type": "openai"}}}
+        )
+        assert load_backends()["google-antigravity"].backend_type == "openai"

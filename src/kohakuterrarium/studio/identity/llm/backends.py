@@ -69,7 +69,7 @@ def list_backends() -> list[dict[str, Any]]:
     rows = []
     package_records = package_provider_records()
     for name, backend in load_backends().items():
-        descriptor = package_backend(backend.backend_type)
+        descriptor = package_backend(name) or package_backend(backend.backend_type)
         if backend == package_records.get(name):
             source = "package"
         elif name in _BUILT_IN_BACKEND_NAMES:
@@ -79,15 +79,22 @@ def list_backends() -> list[dict[str, Any]]:
         rows.append(
             {
                 "name": name,
+                "display_name": descriptor.display_name if descriptor else name,
                 "backend_type": backend.backend_type,
                 "base_url": backend.base_url or "",
                 "api_key_env": backend.api_key_env or "",
                 "provider_name": backend.provider_name or "",
                 "provider_native_tools": list(backend.provider_native_tools),
-                "built_in": name in _BUILT_IN_BACKEND_NAMES,
+                "built_in": source == "builtin",
+                "owned_builtin": bool(descriptor and descriptor.owns_builtin),
                 "source": source,
                 "package": descriptor.package if descriptor else "",
                 "credentials": descriptor.credentials if descriptor else "api_key",
+                "auth": (
+                    descriptor.auth.to_public()
+                    if descriptor and descriptor.auth
+                    else None
+                ),
                 "has_token": bool(get_api_key(name)),
                 "available": _is_available(name),
             }
