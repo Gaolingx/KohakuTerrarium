@@ -81,6 +81,8 @@ def list_backends() -> list[dict[str, Any]]:
             source = "builtin"
         else:
             source = "user"
+        available = _is_available(name)
+        auth = descriptor.auth.to_public() if descriptor and descriptor.auth else None
         rows.append(
             {
                 "name": name,
@@ -95,13 +97,9 @@ def list_backends() -> list[dict[str, Any]]:
                 "source": source,
                 "package": descriptor.package if descriptor else "",
                 "credentials": descriptor.credentials if descriptor else "api_key",
-                "auth": (
-                    descriptor.auth.to_public()
-                    if descriptor and descriptor.auth
-                    else None
-                ),
+                "auth": {**auth, "available": available} if auth else None,
                 "has_token": bool(get_api_key(name)),
-                "available": _is_available(name),
+                "available": available,
             }
         )
     return rows

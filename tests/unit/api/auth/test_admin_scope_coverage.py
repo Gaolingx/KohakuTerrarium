@@ -25,6 +25,7 @@ _ADMIN_GATED_ROUTES: tuple[tuple[str, str], ...] = (
     ("/api/settings/keys/", "DELETE"),
     ("/api/settings/backends", "POST"),
     ("/api/settings/backends/", "DELETE"),
+    ("/api/settings/backends/", "GET"),  # package auth status probe
     ("/api/settings/profiles", "POST"),
     ("/api/settings/profiles/", "DELETE"),
     ("/api/settings/default-model", "POST"),
@@ -49,6 +50,11 @@ def real_app() -> FastAPI:
     from kohakuterrarium.api.app import create_app
 
     return create_app()
+
+
+# Credential probes stay admin-only even as GETs: they hit the provider
+# account, mirroring the ``antigravity-status`` precedent.
+_ADMIN_GATED_READ_SUFFIXES: tuple[str, ...] = ("/auth-status",)
 
 
 def _route_has_admin_dep(route: APIRoute) -> bool:
@@ -115,6 +121,8 @@ class TestReadRoutesUngated:
             if not path.startswith(prefix):
                 continue
             if "GET" not in route.methods:
+                continue
+            if path.endswith(_ADMIN_GATED_READ_SUFFIXES):
                 continue
             assert not _route_has_admin_dep(route), (
                 f"GET route {path} should NOT have admin dep "

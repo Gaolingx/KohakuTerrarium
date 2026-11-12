@@ -1,11 +1,25 @@
 """Manage LLM backends, profiles, model defaults, and native-tool metadata."""
 
+import asyncio
+import inspect
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from kohakuterrarium.api.auth import verify_admin_token
+from kohakuterrarium.api.routes.identity.node_routing import is_host_target
+from kohakuterrarium.errors import ConfigError
+from kohakuterrarium.llm.profiles.backend_registry import (
+    PackageBackendDescriptor,
+    PackageBackendError,
+    load_backend_auth,
+    package_backend,
+)
+from kohakuterrarium.llm.profiles.package_auth import (
+    PackageAuthError,
+    normalize_status,
+)
 from kohakuterrarium.studio.identity.llm.backends import (
     list_backend_types,
     list_backends,
@@ -24,8 +38,13 @@ from kohakuterrarium.studio.identity.llm.profiles import (
     remove_profile,
     save_profile_record,
 )
+from kohakuterrarium.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
+
+AUTH_CALL_TIMEOUT_S = 30
 
 
 class BackendRequest(BaseModel):
@@ -91,6 +110,105 @@ async def create_backend(req: BackendRequest):
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     return {"status": "saved", "name": req.name}
+
+
+def _package_auth(name: str, node: str) -> tuple[PackageBackendDescriptor, type]:
+    """Resolve a backend's declared auth class, enforcing access rules."""
+    try:
+        descriptor = package_backend(name)
+    except ConfigError as exc:
+        raise HTTPException(409, str(exc)) from None
+    if descriptor is None or descriptor.auth is None:
+        raise HTTPException(404, f"No package-declared auth for backend {name!r}")
+    if descriptor.auth.local_only and not is_host_target(node):
+        raise HTTPException(400, "local_host_only")
+    try:
+        auth_cls = load_backend_auth(name)
+    except PackageBackendError as exc:
+        logger.warning("Package auth class unavailable", backend=name, error=str(exc))
+        raise HTTPException(
+            502, f"Auth class for backend {name!r} is unavailable"
+        ) from None
+    if auth_cls is None:
+        raise HTTPException(404, f"No package-declared auth for backend {name!r}")
+    return descriptor, auth_cls
+
+
+def _status_payload(name: str, raw: Any, auth_cls: type) -> dict[str, Any]:
+    """Normalize a provider's status into the public wire shape."""
+    try:
+        normalized = normalize_status(raw)
+    except PackageAuthError as exc:
+        logger.warning("Package auth status malformed", backend=name, error=str(exc))
+        raise HTTPException(
+            502, f"Auth status for backend {name!r} is malformed"
+        ) from None
+    normalized["refresh_available"] = callable(getattr(auth_cls, "refresh", None))
+    return {"backend": name, **normalized}
+
+
+async def _invoke_auth(name: str, action: str, method) -> Any:
+    """Call a package auth hook, mapping failure to a safe HTTP error."""
+    try:
+        result = method()
+        if inspect.isawaitable(result):
+            return await asyncio.wait_for(result, timeout=AUTH_CALL_TIMEOUT_S)
+        return result
+    except asyncio.TimeoutError:
+        raise HTTPException(504, f"Backend {name!r} auth {action} timed out") from None
+    except Exception as exc:
+        logger.warning(
+            "Package auth call failed", backend=name, action=action, error=str(exc)
+        )
+        raise HTTPException(502, f"Backend {name!r} auth {action} failed") from None
+
+
+@router.get("/backends/{name}/auth-status", dependencies=[Depends(verify_admin_token)])
+async def get_backend_auth_status(name: str, node: str = ""):
+    """Report the sign-in state a backend's package declares."""
+    _descriptor, auth_cls = _package_auth(name, node)
+    check = getattr(auth_cls, "status", None)
+    if not callable(check):
+        raise HTTPException(409, "auth_unsupported")
+    try:
+        raw = await asyncio.to_thread(check)
+    except Exception as exc:
+        logger.warning("Package auth status failed", backend=name, error=str(exc))
+        raise HTTPException(502, f"Auth status for backend {name!r} failed") from None
+    return _status_payload(name, raw, auth_cls)
+
+
+@router.post(
+    "/backends/{name}/auth-refresh", dependencies=[Depends(verify_admin_token)]
+)
+async def refresh_backend_auth(name: str, node: str = ""):
+    """Ask a backend's package to renew credentials, then report the new state."""
+    _descriptor, auth_cls = _package_auth(name, node)
+    refresh = getattr(auth_cls, "refresh", None)
+    if not callable(refresh):
+        raise HTTPException(409, "auth_unsupported")
+    payload = _status_payload(
+        name, await _invoke_auth(name, "refresh", refresh), auth_cls
+    )
+    if payload["state"] == "refresh_busy":
+        raise HTTPException(409, "refresh_busy")
+    return payload
+
+
+@router.post("/backends/{name}/auth-models", dependencies=[Depends(verify_admin_token)])
+async def get_backend_auth_models(name: str, node: str = ""):
+    """Return the model list a backend's package obtains from its own account."""
+    _descriptor, auth_cls = _package_auth(name, node)
+    models = getattr(auth_cls, "models", None)
+    if not callable(models):
+        raise HTTPException(409, "auth_unsupported")
+    raw = await _invoke_auth(name, "models", models)
+    if not isinstance(raw, dict) or not isinstance(raw.get("models"), list):
+        logger.warning("Package auth models unusable", backend=name)
+        raise HTTPException(
+            502, f"Backend {name!r} auth models returned an unusable payload"
+        )
+    return {"backend": name, "models": raw["models"]}
 
 
 @router.delete("/backends/{name}", dependencies=[Depends(verify_admin_token)])

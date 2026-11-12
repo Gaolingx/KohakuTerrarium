@@ -181,7 +181,11 @@ class TestPackageBackendRecords:
         assert row["built_in"] is False
         assert row["owned_builtin"] is True
         assert row["display_name"] == "Antigravity (package)"
-        assert row["auth"] == {"local_only": True, "login_hint": "Run agy."}
+        assert row["auth"] == {
+            "local_only": True,
+            "login_hint": "Run agy.",
+            "available": True,
+        }
         assert "module" not in row["auth"] and "class" not in row["auth"]
 
     def test_list_backends_without_package_keeps_builtin_row(self, kt_home):
