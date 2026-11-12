@@ -88,6 +88,56 @@ class TestDescriptorFromManifest:
         )
 
 
+class TestDescriptorAuthAndOwnership:
+    def test_entry_carries_the_auth_block_and_ownership_flag(self):
+        d = PackageBackendDescriptor.from_manifest(
+            "kt-antigravity-login",
+            {
+                "name": "google-antigravity",
+                "module": "m",
+                "class": "C",
+                "credentials": "external",
+                "owns_builtin": True,
+                "auth": {
+                    "module": "kt_antigravity_login.auth",
+                    "class": "AntigravityAuth",
+                    "local_only": True,
+                    "login_hint": "Run agy.",
+                },
+            },
+        )
+        assert d.owns_builtin is True
+        assert d.auth is not None
+        assert (d.auth.module, d.auth.class_name) == (
+            "kt_antigravity_login.auth",
+            "AntigravityAuth",
+        )
+        assert d.auth.to_public() == {"local_only": True, "login_hint": "Run agy."}
+
+    def test_absent_block_defaults_are_unchanged(self):
+        d = PackageBackendDescriptor.from_manifest(
+            "pkg", {"name": "echo", "module": "m", "class": "C"}
+        )
+        assert d.owns_builtin is False
+        assert d.auth is None
+
+    @pytest.mark.parametrize(
+        "entry, needle",
+        [
+            (
+                {"name": "e", "module": "m", "class": "C", "owns_builtin": "yes"},
+                "owns_builtin",
+            ),
+            ({"name": "e", "module": "m", "class": "C", "auth": "kt.auth"}, "auth"),
+            ({"name": "e", "module": "m", "class": "C", "auth": {}}, "'module'"),
+        ],
+    )
+    def test_bad_ownership_or_auth_raises_naming_package(self, entry, needle):
+        with pytest.raises(ConfigError) as exc:
+            PackageBackendDescriptor.from_manifest("bad-pkg", entry)
+        assert "bad-pkg" in str(exc.value) and needle in str(exc.value)
+
+
 class TestPackageBackends:
     def test_no_packages_means_no_backends(self, kt_home):
         assert package_backends() == {}
@@ -112,6 +162,40 @@ class TestPackageBackends:
             kt_home, "p", [{"name": "broken", "module": "m"}, echo_backend()]
         )
         assert set(package_backends()) == {"echo"}
+
+    def test_malformed_auth_block_only_drops_its_own_entry(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "p",
+            [echo_backend("bad", auth={"module": "m"}), echo_backend()],
+        )
+        assert set(package_backends()) == {"echo"}
+        assert package_backend("bad") is None
+
+    def test_auth_block_survives_the_scan(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "p",
+            [
+                echo_backend(
+                    "agy",
+                    credentials="external",
+                    auth={"module": "m", "class": "A", "login_hint": "sign in"},
+                )
+            ],
+        )
+        assert package_backend("agy").auth.to_public() == {
+            "local_only": True,
+            "login_hint": "sign in",
+        }
+
+    def test_owns_builtin_is_recorded_but_not_yet_honoured(self, kt_home):
+        """T2 flips the skip: until then a builtin name stays unclaimed."""
+        install_backend_package(
+            kt_home, "p", [echo_backend("openai", owns_builtin=True)]
+        )
+        assert package_backends() == {}
+        assert package_backend("openai") is None
 
     def test_collision_blocks_only_the_clashing_name(self, kt_home):
         install_backend_package(kt_home, "a", [echo_backend()])

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from kohakuterrarium.errors import ConfigError, LLMNotConfiguredError
+from kohakuterrarium.llm.profiles.package_auth import PackageAuthDescriptor
 from kohakuterrarium.llm.profiles.types import LLMBackend
 from kohakuterrarium.packages.resolve import ensure_package_importable
 from kohakuterrarium.packages.slots.slots import iter_package_llm_backend_entries
@@ -42,6 +43,8 @@ class PackageBackendDescriptor:
     description: str = ""
     credentials: str = "api_key"
     provider_native_tools: tuple[str, ...] = ()
+    owns_builtin: bool = False
+    auth: PackageAuthDescriptor | None = None
 
     @classmethod
     def from_manifest(
@@ -67,6 +70,15 @@ class PackageBackendDescriptor:
         native = entry.get("provider_native_tools") or []
         if not isinstance(native, list):
             raise ConfigError(f"{where} provider_native_tools must be a list")
+        owns_builtin = entry.get("owns_builtin", False)
+        if not isinstance(owns_builtin, bool):
+            raise ConfigError(f"{where} owns_builtin must be true or false")
+        raw_auth = entry.get("auth")
+        auth = (
+            PackageAuthDescriptor.from_manifest(raw_auth, where)
+            if raw_auth is not None
+            else None
+        )
         return cls(
             name=name,
             module=module,
@@ -76,6 +88,8 @@ class PackageBackendDescriptor:
             description=str(entry.get("description") or ""),
             credentials=credentials,
             provider_native_tools=tuple(str(t) for t in native if t),
+            owns_builtin=owns_builtin,
+            auth=auth,
         )
 
     @property
