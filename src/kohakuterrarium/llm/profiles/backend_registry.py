@@ -225,6 +225,35 @@ def load_backend_class(name: str) -> type:
     return cls
 
 
+def load_backend_auth(name: str) -> type | None:
+    """Import the sign-in status class of a package backend.
+
+    Returns ``None`` when the descriptor declares no ``auth:`` block.
+
+    Raises:
+        PackageBackendError: Unknown name, import failure, or a missing class.
+    """
+    descriptor = package_backend(name)
+    if descriptor is None:
+        raise PackageBackendError(f"No installed package provides backend {name!r}")
+    auth = descriptor.auth
+    if auth is None:
+        return None
+    where = (
+        f"auth of backend {name!r} (package {descriptor.package!r}, "
+        f"{auth.module}.{auth.class_name})"
+    )
+    ensure_package_importable(descriptor.package)
+    try:
+        module = importlib.import_module(auth.module)
+    except Exception as exc:
+        raise PackageBackendError(f"Cannot import {where}: {exc}") from exc
+    cls = getattr(module, auth.class_name, None)
+    if not isinstance(cls, type):
+        raise PackageBackendError(f"Class not found for {where}")
+    return cls
+
+
 def backend_doctor(name: str) -> str | None:
     """Run the provider class's optional ``doctor()`` status check.
 

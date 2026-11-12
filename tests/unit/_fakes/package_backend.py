@@ -40,6 +40,30 @@ class EchoProvider(BaseLLMProvider):
 
 class NoFactory:
     """A class that does not follow the provider contract."""
+
+
+class ReadyAuth:
+    """Reports a signed-in user."""
+
+    @classmethod
+    def available(cls):
+        return True
+
+
+class MissingAuth:
+    """Reports no signed-in user."""
+
+    @classmethod
+    def available(cls):
+        return False
+
+
+class BrokenAuth:
+    """Raises instead of reporting."""
+
+    @classmethod
+    def available(cls):
+        raise RuntimeError("auth probe exploded")
 '''
 
 
@@ -72,13 +96,7 @@ def install_backend_package(
     root = home / "packages" / package
     root.mkdir(parents=True)
     (root / f"{module}.py").write_text(source, encoding="utf-8")
-    entries = [
-        {
-            k: (v.format(module=module) if isinstance(v, str) else v)
-            for k, v in e.items()
-        }
-        for e in backends
-    ]
+    entries = [_format_entry(e, module) for e in backends]
     manifest = {"name": package, "version": "0.1.0", "llm_backends": entries}
     if presets:
         manifest["llm_presets"] = presets
@@ -86,6 +104,22 @@ def install_backend_package(
     return module
 
 
+def _format_entry(value, module: str):
+    """Substitute ``{module}`` in every string of an entry, nested included."""
+    if isinstance(value, str):
+        return value.format(module=module)
+    if isinstance(value, dict):
+        return {k: _format_entry(v, module) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_format_entry(v, module) for v in value]
+    return value
+
+
 def echo_backend(name: str = "echo", **extra) -> dict:
     """A valid ``llm_backends:`` entry pointing at ``EchoProvider``."""
     return {"name": name, "module": "{module}", "class": "EchoProvider", **extra}
+
+
+def auth_block(class_name: str = "ReadyAuth", **extra) -> dict:
+    """An ``auth:`` block pointing at one of the fake auth classes."""
+    return {"module": "{module}", "class": class_name, **extra}

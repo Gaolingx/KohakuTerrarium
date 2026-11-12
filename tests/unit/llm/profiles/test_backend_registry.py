@@ -7,6 +7,7 @@ from kohakuterrarium.llm.profiles.backend_registry import (
     PackageBackendDescriptor,
     PackageBackendError,
     backend_doctor,
+    load_backend_auth,
     load_backend_class,
     package_backend,
     package_backends,
@@ -14,6 +15,7 @@ from kohakuterrarium.llm.profiles.backend_registry import (
 from kohakuterrarium.llm.profiles.types import LLMBackend
 
 from tests.unit._fakes.package_backend import (
+    auth_block,
     echo_backend,
     install_backend_package,
     kt_home,  # noqa: F401
@@ -250,6 +252,40 @@ class TestLoadBackendClass:
         )
         with pytest.raises(PackageBackendError, match="from_profile"):
             load_backend_class("x")
+
+
+class TestLoadBackendAuth:
+    def test_returns_the_auth_class(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "p",
+            [
+                echo_backend(
+                    credentials="external",
+                    auth=auth_block("ReadyAuth"),
+                )
+            ],
+        )
+        cls = load_backend_auth("echo")
+        assert cls.__name__ == "ReadyAuth"
+        assert cls.available() is True
+
+    def test_no_auth_block_returns_none(self, kt_home):
+        install_backend_package(kt_home, "p", [echo_backend()])
+        assert load_backend_auth("echo") is None
+
+    def test_unknown_backend(self, kt_home):
+        with pytest.raises(PackageBackendError, match="No installed package"):
+            load_backend_auth("ghost")
+
+    def test_missing_auth_class(self, kt_home):
+        install_backend_package(
+            kt_home,
+            "p",
+            [echo_backend(auth=auth_block("Absent"))],
+        )
+        with pytest.raises(PackageBackendError, match="Class not found"):
+            load_backend_auth("echo")
 
 
 class TestBackendDoctor:

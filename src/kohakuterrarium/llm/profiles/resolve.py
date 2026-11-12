@@ -13,7 +13,11 @@ from kohakuterrarium.llm.profiles.api_keys import PROVIDER_KEY_MAP as PROVIDER_K
 from kohakuterrarium.llm.profiles.api_keys import get_api_key
 from kohakuterrarium.llm.profiles.api_keys import list_api_keys as list_api_keys
 from kohakuterrarium.llm.profiles.api_keys import save_api_key
-from kohakuterrarium.llm.profiles.backend_registry import package_backend
+from kohakuterrarium.llm.profiles.backend_registry import (
+    PackageBackendError,
+    load_backend_auth,
+    package_backend,
+)
 from kohakuterrarium.llm.profiles.backends import (
     _BUILTIN_PROVIDER_NAMES,
 )
@@ -574,14 +578,16 @@ def _is_available(
         return CodexTokens.load() is not None
     if backend and backend.backend_type == "grok-subscription":
         return GrokTokens.available()
-    if backend and backend.backend_type == "google-antigravity":
-        return AgyCredentials.available()
     if provider_name == "grok-subscription":
         return GrokTokens.available()
     if backend:
         descriptor = package_backend(backend.backend_type)
         if descriptor is not None and descriptor.manages_own_credentials:
-            return True
+            if descriptor.auth is None:
+                return True
+            return _package_auth_available(backend.backend_type)
+        if descriptor is None and backend.backend_type == "google-antigravity":
+            return AgyCredentials.available()
         if get_api_key(provider_name):
             return True
         if backend.api_key_env and get_api_key(backend.api_key_env):
@@ -590,6 +596,31 @@ def _is_available(
     if provider_name in PROVIDER_KEY_MAP:
         return bool(get_api_key(provider_name))
     return False
+
+
+def _package_auth_available(backend_type: str) -> bool:
+    """Ask a package's auth class whether the user is signed in.
+
+    Availability is a display hint, so a broken check answers ``False``
+    instead of failing the whole model list.
+    """
+    try:
+        auth_cls = load_backend_auth(backend_type)
+    except PackageBackendError as exc:
+        logger.warning("Package auth unavailable", backend=backend_type, error=str(exc))
+        return False
+    if auth_cls is None:
+        return False
+    check = getattr(auth_cls, "available", None)
+    if not callable(check):
+        return True
+    try:
+        return bool(check())
+    except Exception as exc:
+        logger.warning(
+            "Package auth check failed", backend=backend_type, error=str(exc)
+        )
+        return False
 
 
 def list_all() -> list[dict[str, Any]]:

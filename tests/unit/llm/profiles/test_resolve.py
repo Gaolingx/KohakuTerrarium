@@ -39,7 +39,11 @@ from kohakuterrarium.llm.profiles.resolve import (
     set_default_model,
 )
 
-from tests.unit._fakes.package_backend import echo_backend, install_backend_package
+from tests.unit._fakes.package_backend import (
+    auth_block,
+    echo_backend,
+    install_backend_package,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -587,6 +591,66 @@ class TestIsAvailable:
 
     def test_unknown_provider_not_available(self):
         assert _is_available("made-up-provider") is False
+
+    def test_owned_package_auth_available_decides(self, tmp_path, monkeypatch):
+        from kohakuterrarium.llm.antigravity.auth import AgyCredentials
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(AgyCredentials, "available", classmethod(lambda cls: True))
+        install_backend_package(
+            tmp_path,
+            "p",
+            [
+                echo_backend(
+                    "google-antigravity",
+                    owns_builtin=True,
+                    credentials="external",
+                    auth=auth_block("MissingAuth"),
+                )
+            ],
+        )
+        assert _is_available("google-antigravity") is False
+
+    def test_owned_package_without_auth_defaults_available(self, tmp_path, monkeypatch):
+        from kohakuterrarium.llm.antigravity.auth import AgyCredentials
+
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.setattr(AgyCredentials, "available", classmethod(lambda cls: False))
+        install_backend_package(
+            tmp_path,
+            "p",
+            [
+                echo_backend(
+                    "google-antigravity", owns_builtin=True, credentials="external"
+                )
+            ],
+        )
+        assert _is_available("google-antigravity") is True
+
+    def test_no_package_falls_back_to_local_agy(self, monkeypatch):
+        from kohakuterrarium.llm.antigravity.auth import AgyCredentials
+
+        monkeypatch.setattr(AgyCredentials, "available", classmethod(lambda cls: True))
+        assert _is_available("google-antigravity") is True
+        monkeypatch.setattr(AgyCredentials, "available", classmethod(lambda cls: False))
+        assert _is_available("google-antigravity") is False
+
+    def test_broken_available_does_not_raise(self, tmp_path, monkeypatch, caplog):
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        install_backend_package(
+            tmp_path,
+            "p",
+            [
+                echo_backend(
+                    "google-antigravity",
+                    owns_builtin=True,
+                    credentials="external",
+                    auth=auth_block("BrokenAuth"),
+                )
+            ],
+        )
+        assert _is_available("google-antigravity") is False
+        assert "auth check failed" in caplog.text.lower()
 
 
 # ---------------------------------------------------------------------------
